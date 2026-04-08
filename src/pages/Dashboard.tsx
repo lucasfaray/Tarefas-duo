@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { CheckCircle2, Circle, Star, Trophy } from 'lucide-react';
+import { CheckCircle2, Circle, Star, Trophy, Loader2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { todayStr, pointsInRange, startOfWeek } from '../utils/gamification';
 import MiniCalendar from '../components/MiniCalendar';
 import ConfettiEffect from '../components/ConfettiEffect';
 
 export default function Dashboard() {
-  const { state, dispatch, activeUser, isHabitDoneToday } = useApp();
+  const { state, dispatch, activeUser, isHabitDoneToday, syncing } = useApp();
   const today = todayStr();
   const [confetti, setConfetti] = useState(false);
   const [selectedDate, setSelectedDate] = useState(today);
@@ -57,9 +57,17 @@ export default function Dashboard() {
             {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
         </div>
-        <div className="flex items-center gap-1 px-3 py-1.5 bg-orange-500/10 border border-orange-500/30 rounded-xl">
+        <div className="flex items-center gap-2">
+          {syncing && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-primary-500/10 border border-primary-500/20 rounded-xl">
+              <Loader2 size={12} className="text-primary-400 animate-spin" />
+              <span className="text-primary-400 text-xs">Sincronizando</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1 px-3 py-1.5 bg-orange-500/10 border border-orange-500/30 rounded-xl">
           <span className="fire-flicker">🔥</span>
           <span className="text-orange-400 font-bold text-sm">{activeUser.streak}</span>
+          </div>
         </div>
       </div>
 

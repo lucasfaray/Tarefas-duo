@@ -1,8 +1,18 @@
-import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import React, {
+  createContext, useContext, useReducer, useEffect,
+  useCallback, useRef,
+} from 'react';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { AppState, Habit, HabitLog, Task, User } from '../types';
-import { loadState, saveState } from '../utils/storage';
 import { createSeedState } from '../utils/seed';
 import { todayStr, getLevelFromXP } from '../utils/gamification';
+import {
+  fetchRemoteState, pushRemoteState,
+  subscribeRemoteState, unsubscribeRemoteState,
+} from '../utils/remoteState';
+
+// ─── env helpers ────────────────────────────────────────────────────────────
+const DUO_ID = import.meta.env.VITE_DUO_ID as string | undefined;
 
 // ────────────────────────────── Actions ──────────────────────────────────────
 
@@ -19,18 +29,21 @@ type Action =
   | { type: 'UNCOMPLETE_TASK'; taskId: string }
   | { type: 'UPDATE_USER'; user: User }
   | { type: 'UPDATE_SETTINGS'; settings: Partial<AppState['settings']> }
-  | { type: 'RESET'; }
+  | { type: 'HYDRATE'; state: AppState }
+  | { type: 'RESET' };
 
 // ──────────────────────────── Reducer ────────────────────────────────────────
 
 function awardXP(user: User, amount: number): User {
   const newXP = user.xp + amount;
-  const newLevel = getLevelFromXP(newXP);
-  return { ...user, xp: newXP, level: newLevel, totalPoints: user.totalPoints + amount };
+  return { ...user, xp: newXP, level: getLevelFromXP(newXP), totalPoints: user.totalPoints + amount };
 }
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
+
+    case 'HYDRATE':
+      return action.state;
 
     case 'SET_ACTIVE_USER':
       return { ...state, activeUserId: action.userId };
@@ -56,31 +69,31 @@ function reducer(state: AppState, action: Action): AppState {
       const habit = state.habits.find(h => h.id === habitId);
       if (!habit) return state;
 
-      let newLogs: HabitLog[];
-      let usersDelta: User[];
-
       if (existing) {
-        // Un-complete
-        newLogs = state.habitLogs.filter(l => !(l.habitId === habitId && l.userId === userId && l.date === date));
-        usersDelta = state.users.map(u =>
-          u.id === userId
-            ? { ...u, totalPoints: Math.max(0, u.totalPoints - habit.points), xp: Math.max(0, u.xp - habit.points) }
-            : u,
-        );
-      } else {
-        // Complete
-        const newLog: HabitLog = {
-          id: `log_${habitId}_${userId}_${date}_${Date.now()}`,
-          habitId, userId, date, completedCount: 1,
-          completedAt: new Date().toISOString(),
+        return {
+          ...state,
+          habitLogs: state.habitLogs.filter(
+            l => !(l.habitId === habitId && l.userId === userId && l.date === date),
+          ),
+          users: state.users.map(u =>
+            u.id === userId
+              ? { ...u, totalPoints: Math.max(0, u.totalPoints - habit.points), xp: Math.max(0, u.xp - habit.points) }
+              : u,
+          ),
         };
-        newLogs = [...state.habitLogs, newLog];
-        usersDelta = state.users.map(u =>
-          u.id === userId ? awardXP(u, habit.points) : u,
-        );
       }
-
-      return { ...state, habitLogs: newLogs, users: usersDelta };
+      return {
+        ...state,
+        habitLogs: [
+          ...state.habitLogs,
+          {
+            id: `log_${habitId}_${userId}_${date}_${Date.now()}`,
+            habitId, userId, date, completedCount: 1,
+            completedAt: new Date().toISOString(),
+          } as HabitLog,
+        ],
+        users: state.users.map(u => u.id === userId ? awardXP(u, habit.points) : u),
+      };
     }
 
     case 'ADD_TASK':
@@ -96,29 +109,33 @@ function reducer(state: AppState, action: Action): AppState {
       const { taskId, userId } = action;
       const task = state.tasks.find(t => t.id === taskId);
       if (!task || task.completed) return state;
-      const newTasks = state.tasks.map(t =>
-        t.id === taskId
-          ? { ...t, completed: true, completedBy: userId, completedAt: new Date().toISOString() }
-          : t,
-      );
-      const newUsers = state.users.map(u => u.id === userId ? awardXP(u, task.points) : u);
-      return { ...state, tasks: newTasks, users: newUsers };
+      return {
+        ...state,
+        tasks: state.tasks.map(t =>
+          t.id === taskId
+            ? { ...t, completed: true, completedBy: userId, completedAt: new Date().toISOString() }
+            : t,
+        ),
+        users: state.users.map(u => u.id === userId ? awardXP(u, task.points) : u),
+      };
     }
 
     case 'UNCOMPLETE_TASK': {
       const task = state.tasks.find(t => t.id === action.taskId);
       if (!task || !task.completed) return state;
-      const newTasks = state.tasks.map(t =>
-        t.id === action.taskId
-          ? { ...t, completed: false, completedBy: undefined, completedAt: undefined }
-          : t,
-      );
-      const newUsers = state.users.map(u =>
-        u.id === task.completedBy
-          ? { ...u, totalPoints: Math.max(0, u.totalPoints - task.points), xp: Math.max(0, u.xp - task.points) }
-          : u,
-      );
-      return { ...state, tasks: newTasks, users: newUsers };
+      return {
+        ...state,
+        tasks: state.tasks.map(t =>
+          t.id === action.taskId
+            ? { ...t, completed: false, completedBy: undefined, completedAt: undefined }
+            : t,
+        ),
+        users: state.users.map(u =>
+          u.id === task.completedBy
+            ? { ...u, totalPoints: Math.max(0, u.totalPoints - task.points), xp: Math.max(0, u.xp - task.points) }
+            : u,
+        ),
+      };
     }
 
     case 'UPDATE_USER':
@@ -141,6 +158,7 @@ interface AppContextValue {
   state: AppState;
   dispatch: React.Dispatch<Action>;
   activeUser: User;
+  syncing: boolean;
   isHabitDoneToday: (habitId: string, userId?: string) => boolean;
   isHabitDoneOnDate: (habitId: string, userId: string, date: string) => boolean;
   getHabitLogsForDate: (date: string) => HabitLog[];
@@ -148,33 +166,101 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, null, () => {
-    const saved = loadState();
-    return saved ?? createSeedState();
-  });
+interface Props {
+  children: React.ReactNode;
+  /** Supabase user id of the currently logged-in user (for sync attribution) */
+  authUserId: string;
+}
 
+export function AppProvider({ children, authUserId }: Props) {
+  const [state, dispatch] = useReducer(reducer, createSeedState());
+  const [syncing, setSyncing] = React.useState(true);
+
+  // Refs to avoid stale closures in callbacks
+  const stateRef       = useRef(state);
+  const authUserIdRef  = useRef(authUserId);
+  const channelRef     = useRef<RealtimeChannel | null>(null);
+  const pushTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isHydrated     = useRef(false);
+
+  useEffect(() => { stateRef.current = state; }, [state]);
+  useEffect(() => { authUserIdRef.current = authUserId; }, [authUserId]);
+
+  // ── Initial hydrate from Supabase ─────────────────────────────────────────
   useEffect(() => {
-    saveState(state);
-  }, [state]);
+    if (!DUO_ID) {
+      console.warn('[AppContext] VITE_DUO_ID not set — running in local-only mode.');
+      setSyncing(false);
+      return;
+    }
 
+    let cancelled = false;
+
+    fetchRemoteState(DUO_ID).then(remote => {
+      if (cancelled) return;
+      if (remote) {
+        dispatch({ type: 'HYDRATE', state: remote });
+      }
+      // If no remote state yet, seed state is used and will be pushed on first change
+      isHydrated.current = true;
+      setSyncing(false);
+    });
+
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Realtime subscription ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!DUO_ID) return;
+
+    const channel = subscribeRemoteState(DUO_ID, authUserId, (newState) => {
+      dispatch({ type: 'HYDRATE', state: newState });
+    });
+    channelRef.current = channel;
+
+    return () => {
+      if (channelRef.current) {
+        unsubscribeRemoteState(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [authUserId]);
+
+  // ── Debounced push on every state change ─────────────────────────────────
+  useEffect(() => {
+    if (!DUO_ID || !isHydrated.current) return;
+
+    if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+
+    pushTimerRef.current = setTimeout(() => {
+      pushRemoteState(DUO_ID, stateRef.current, authUserIdRef.current);
+    }, 1500); // 1.5s debounce — fast enough, safe enough
+
+    return () => {
+      if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+    };
+  }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
   const activeUser = state.users.find(u => u.id === state.activeUserId) ?? state.users[0];
 
-  const isHabitDoneOnDate = useCallback((habitId: string, userId: string, date: string) => {
-    return state.habitLogs.some(l => l.habitId === habitId && l.userId === userId && l.date === date);
-  }, [state.habitLogs]);
+  const isHabitDoneOnDate = useCallback((habitId: string, userId: string, date: string) =>
+    state.habitLogs.some(l => l.habitId === habitId && l.userId === userId && l.date === date),
+  [state.habitLogs]);
 
-  const isHabitDoneToday = useCallback((habitId: string, userId?: string) => {
-    const uid = userId ?? state.activeUserId;
-    return isHabitDoneOnDate(habitId, uid, todayStr());
-  }, [state.habitLogs, state.activeUserId, isHabitDoneOnDate]);
+  const isHabitDoneToday = useCallback((habitId: string, userId?: string) =>
+    isHabitDoneOnDate(habitId, userId ?? state.activeUserId, todayStr()),
+  [state.habitLogs, state.activeUserId, isHabitDoneOnDate]);
 
-  const getHabitLogsForDate = useCallback((date: string) => {
-    return state.habitLogs.filter(l => l.date === date);
-  }, [state.habitLogs]);
+  const getHabitLogsForDate = useCallback((date: string) =>
+    state.habitLogs.filter(l => l.date === date),
+  [state.habitLogs]);
 
   return (
-    <AppContext.Provider value={{ state, dispatch, activeUser, isHabitDoneToday, isHabitDoneOnDate, getHabitLogsForDate }}>
+    <AppContext.Provider value={{
+      state, dispatch, activeUser, syncing,
+      isHabitDoneToday, isHabitDoneOnDate, getHabitLogsForDate,
+    }}>
       {children}
     </AppContext.Provider>
   );

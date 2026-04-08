@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Repeat2, CheckSquare, Trophy, BarChart2, Settings, Swords } from 'lucide-react';
+import { LayoutDashboard, Repeat2, CheckSquare, Trophy, BarChart2, Settings, Swords, LogOut } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { getXPProgress } from '../utils/gamification';
 
 const links = [
@@ -14,6 +15,7 @@ const links = [
 
 export default function Navbar() {
   const { state, activeUser, dispatch } = useApp();
+  const { signOut } = useAuth();
   const xp = getXPProgress(activeUser.xp);
 
   return (
@@ -97,6 +99,17 @@ export default function Navbar() {
               <p className="text-xs text-gray-500">Melhor: {activeUser.longestStreak} dias</p>
             </div>
           </div>
+        </div>
+
+        {/* Logout */}
+        <div className="px-4 pb-4">
+          <button
+            onClick={signOut}
+            className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
+          >
+            <LogOut size={16} />
+            Sair
+          </button>
         </div>
       </aside>
 

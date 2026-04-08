@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Settings as SettingsIcon, Bell, Moon, Users, RotateCcw, Trophy, Palette } from 'lucide-react';
+import { Settings as SettingsIcon, Bell, Moon, Users, RotateCcw, Trophy, Palette, LogOut } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import type { User } from '../types';
 import Modal from '../components/Modal';
 
@@ -8,6 +9,7 @@ const AVATARS = ['👩','👨','👧','👦','🧑','👩‍🦰','👨‍🦱',
 
 export default function Settings() {
   const { state, dispatch } = useApp();
+  const { signOut, user: authUser } = useAuth();
   const [editUser, setEditUser] = useState<User | null>(null);
   const [userForm, setUserForm] = useState({ name: '', avatar: '' });
 
@@ -103,6 +105,18 @@ export default function Settings() {
             <option value={0}>Domingo</option>
           </select>
         </div>
+      </section>
+
+      {/* Account */}
+      <section className="card space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <LogOut size={18} className="text-gray-400" />
+          <h2 className="font-bold text-gray-100">Conta</h2>
+        </div>
+        <p className="text-sm text-gray-500">Logado como <span className="text-gray-300">{authUser?.email}</span></p>
+        <button className="btn-ghost border border-gray-700 hover:border-red-500/50 hover:text-red-400 w-full" onClick={signOut}>
+          <LogOut size={16} /> Sair da conta
+        </button>
       </section>
 
       {/* Danger zone */}
