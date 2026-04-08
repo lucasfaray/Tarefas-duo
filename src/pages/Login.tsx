@@ -24,10 +24,15 @@ export default function Login() {
         setError('Email ou senha incorretos.');
       } else if (msg.includes('email not confirmed')) {
         setError('Confirme seu email antes de entrar.');
-      } else if (msg.includes('too many requests')) {
+      } else if (msg.includes('too many requests') || msg.includes('rate limit')) {
         setError('Muitas tentativas. Aguarde alguns minutos.');
+      } else if (msg.includes('user not found') || msg.includes('no user found')) {
+        setError('Email não encontrado.');
+      } else if (msg.includes('signup') || msg.includes('sign_up') || msg.includes('disabled')) {
+        setError('Acesso não autorizado. Contate o administrador.');
       } else {
-        setError('Erro ao entrar. Tente novamente.');
+        // Show raw error in production to help diagnose
+        setError(`Erro: ${authError.message}`);
       }
       setLoading(false);
     }
