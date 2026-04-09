@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7c3aed"/>
+      <stop offset="100%" style="stop-color:#ec4899"/>
+    </linearGradient>
+  </defs>
+  <!-- Background rounded square -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- Swords icon (crossed) -->
+  <!-- Sword 1: top-left to bottom-right -->
+  <g transform="translate(256,256)">
+    <!-- Sword left -->
+    <g transform="rotate(-45)">
+      <rect x="-10" y="-130" width="20" height="180" rx="4" fill="white" opacity="0.95"/>
+      <rect x="-20" y="50" width="40" height="12" rx="3" fill="white" opacity="0.7"/>
+      <rect x="-8" y="62" width="16" height="40" rx="3" fill="white" opacity="0.8"/>
+      <polygon points="0,-165 -8,-130 8,-130" fill="white" opacity="0.95"/>
+    </g>
+    <!-- Sword right -->
+    <g transform="rotate(45)">
+      <rect x="-10" y="-130" width="20" height="180" rx="4" fill="white" opacity="0.95"/>
+      <rect x="-20" y="50" width="40" height="12" rx="3" fill="white" opacity="0.7"/>
+      <rect x="-8" y="62" width="16" height="40" rx="3" fill="white" opacity="0.8"/>
+      <polygon points="0,-165 -8,-130 8,-130" fill="white" opacity="0.95"/>
+    </g>
+  </g>
+</svg>
