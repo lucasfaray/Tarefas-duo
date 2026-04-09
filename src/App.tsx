@@ -15,10 +15,10 @@ import Login from './pages/Login';
 // ─── Layout wrapper ───────────────────────────────────────────────────────────
 function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen overflow-x-hidden">
       <Navbar />
-      <main className="flex-1 lg:ml-64 pt-16 pb-20 lg:pt-0 lg:pb-0 overflow-y-auto min-h-screen">
-        <div className="max-w-5xl mx-auto">{children}</div>
+      <main className="flex-1 lg:ml-64 pt-16 pb-20 lg:pt-0 lg:pb-0 min-h-screen overflow-x-hidden w-0">
+        <div className="max-w-5xl mx-auto w-full">{children}</div>
       </main>
     </div>
   );

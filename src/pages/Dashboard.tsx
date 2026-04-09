@@ -5,6 +5,12 @@ import { todayStr, pointsInRange, startOfWeek } from '../utils/gamification';
 import MiniCalendar from '../components/MiniCalendar';
 import ConfettiEffect from '../components/ConfettiEffect';
 
+const FREQ_LABELS: Record<string, string> = {
+  daily: 'Diária',
+  weekly: 'Semanal',
+  monthly: 'Mensal',
+};
+
 export default function Dashboard() {
   const { state, dispatch, activeUser, isHabitDoneToday, syncing } = useApp();
   const today = todayStr();
@@ -48,7 +54,7 @@ export default function Dashboard() {
       <ConfettiEffect trigger={confetti} />
 
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-100">
             {greeting()}, <span className="gradient-text">{activeUser.name}</span>! {activeUser.avatar}
@@ -167,11 +173,11 @@ export default function Dashboard() {
                     <span className="text-xl">{task.emoji}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-200 truncate">{task.title}</p>
-                      <p className="text-xs text-gray-500 capitalize">{task.frequency}</p>
+                      <p className="text-xs text-gray-500">{FREQ_LABELS[task.frequency] ?? task.frequency}</p>
                     </div>
                     <button
                       onClick={() => dispatch({ type: 'COMPLETE_TASK', taskId: task.id, userId: state.activeUserId })}
-                      className="btn-success text-xs px-3 py-1.5"
+                      className="btn-success text-xs px-3 py-1.5 flex-shrink-0"
                     >
                       +{task.points}pts
                     </button>
